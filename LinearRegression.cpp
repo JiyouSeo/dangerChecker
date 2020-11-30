@@ -45,10 +45,10 @@ pair<double,double> leastRegLine(deque<double> X, deque<double> Y, int n,int wha
     double a = meanY - b * meanX; 
   
     // Printing regression line 
-    cout << ("Regression line:") << endl; 
-    cout << ("Y = "); 
-    printf("%.3f + ", a); 
-    printf("%.3f *X\n", b); 
+    // cout << ("Regression line:") << endl; 
+    // cout << ("Y = "); 
+    // printf("%.3f + ", a); 
+    // printf("%.3f *X\n", b); 
     return pair<double,double>(a,b);
 } 
 

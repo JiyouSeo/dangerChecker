@@ -34,9 +34,9 @@ public:
     void SavePointEachID(long frame,long id,double X,double Y,long objectID);
     /*def least_square(self, id)*/
     void GetParamsByLSM(long id);
-    int PredictFutureCoordinate(long id);
+    pair<long,long> PredictFutureCoordinate(long id);
     pair<long,long> CalculateDistance(long fid,long sid);
-    int PredictDangerByDistance();
+    pair<long,long> PredictDangerByDistance();
     void addCoefficients(long id,pair<double,double> result,int whatCoordinate);
     // ~DangerChecker();
 };
@@ -55,8 +55,16 @@ int DangerChecker::CheckDangerByID(long frame,long id,double X,double Y,long obj
     SavePointEachID(frame,id,X,Y,objectID);
     if (centerPointEachID[id].size() >= LOWER_BOUND_CENTER) {
         GetParamsByLSM(id);
-        int result = PredictFutureCoordinate(id);
-        return result;
+        pair<long,long> result = PredictFutureCoordinate(id);
+        if (result.first != -1) {
+            string res = "warning: ";
+            res.append(to_string(result.first));
+            res.append(" and ");
+            res.append(to_string(result.second));
+            res.append("\n");
+            cout << res;
+            return 1;
+        }
     } 
     return 0;
 }
@@ -119,17 +127,17 @@ void DangerChecker::GetParamsByLSM(long id) {
         X.push_back(centerPointEachID[id].at(i).X);
         Y.push_back(centerPointEachID[id].at(i).Y);
     }
-    cout << "X=f(T)" << "\n";
+    // cout << "X=f(T)" << "\n";
     result = leastRegLine(T,X,numberOfCenterPoint,0);
     addCoefficients(id,result,0);
-    cout << "Y=f(T)" << "\n";
+    // cout << "Y=f(T)" << "\n";
     result = leastRegLine(T,Y,numberOfCenterPoint,1);
     addCoefficients(id,result,1);
 }
 
 
 // 좌표 예측 함수
-int DangerChecker::PredictFutureCoordinate(long id) {
+pair<long,long> DangerChecker::PredictFutureCoordinate(long id) {
     deque<pair<long,long>> res;
     long futureFrame = 0;
     double futureX = 0;
@@ -139,27 +147,21 @@ int DangerChecker::PredictFutureCoordinate(long id) {
     centerPointEachID[id].back().X,centerPointEachID[id].back().Y;
     for (int i=0; i<PREDICT_SECOND; i++) {
         futureFrame = currentFrame + (FPS *(i+1));
-        // for j in range(hot + 1):
-        //         fur_center_point_x += int(self.parameter[id][0][-j-1][0] * (fur_frame ** j))
-        //         fur_center_point_y += int(self.parameter[id][1][-j-1][0] * (fur_frame ** j))
-        //     self.future_point[id][i+1] = [fur_center_point_x, fur_center_point_y]
-        // for (int term=0; term < HIGHEST_ORDER_TERM+1; term++) {
-        //     futurePointEachID[id]
-        // }
 
         // B+AX
         futureX += (parametersEachIDWithX[id][0] + parametersEachIDWithX[id][1] * futureFrame);
         futureY += (parametersEachIDWithY[id][0] + parametersEachIDWithY[id][1] * futureFrame);
         futurePointEachID[id].at(i).X = futureX;
         futurePointEachID[id].at(i).Y = futureY;
-        cout << id << "future Point in " << futureFrame << " frame : " << futurePointEachID[id].at(i).X << " " << futurePointEachID[id].at(i).Y << "\n";
+        // cout << id << "future Point in " << futureFrame << " frame : " << futurePointEachID[id].at(i).X << " " << futurePointEachID[id].at(i).Y << "\n";
     }
     return PredictDangerByDistance();
 }
 
-int DangerChecker::PredictDangerByDistance() {
+pair<long,long> DangerChecker::PredictDangerByDistance() {
     vector<long> idList;
     vector<long> ind;
+    pair<long,long> res(-1,-1);
     for (auto it = futurePointEachID.begin(); it != futurePointEachID.end(); it++) {
         idList.push_back(it->first);
     }
@@ -178,11 +180,13 @@ int DangerChecker::PredictDangerByDistance() {
 				params.push_back(idList[i]);
 			}
 		}
-        CalculateDistance(params[0],params[1]);
-        
+        res = CalculateDistance(params[0],params[1]);
+        if (res.first != -1) {
+            break;
+        }
 	}while(next_permutation(ind.begin(), ind.end()));
 
-    return 1;
+    return res;
 }
 
 pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
@@ -202,7 +206,7 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
         //         else:
         //             self.warning_id[fcnt].append([(fid, sid), t])
     long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
-    pair<long,long> result(0,0);
+    pair<long,long> result(-1,-1);
     for (int t=0; t< PREDICT_SECOND; t++) {
         int x1 = futurePointEachID[fid].at(t).X;
         int y1 = futurePointEachID[fid].at(t).Y;
@@ -213,6 +217,7 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
         if (distance < dangerousDistance) {
            result.first = fid;
            result.second = sid;
+           break; // 동시다발적 위험 감지불가?
         } else {
 
         }

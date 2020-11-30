@@ -15,7 +15,6 @@
 using namespace std;
 
 
-
 /*frame ID X Y objectID */
 class DangerChecker
 {

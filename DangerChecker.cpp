@@ -10,7 +10,7 @@
 #define NUMBER_OF_CENTER 15
 #define LOWER_BOUND_CENTER 10
 #define HIGHEST_ORDER_TERM 1
-#define FPS 25
+#define FPS 15
 #define DANGEROUS_DISTANCE 40 // pixel
 using namespace std;
 
@@ -50,6 +50,7 @@ public:
 
 
 // 최초 진입 함수 및 최종 경고 결과 전달
+// result 0 -> no warning, 1 -> warning
 int DangerChecker::CheckDangerByID(long frame,long id,double X,double Y,long objectID) {
     SavePointEachID(frame,id,X,Y,objectID);
     if (centerPointEachID[id].size() >= LOWER_BOUND_CENTER) {
@@ -189,21 +190,7 @@ pair<long,long> DangerChecker::PredictDangerByDistance() {
 }
 
 pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
-        // stime = config["PREDICT_SECOND"]
-        // for t in range(stime + 1):
-        //     x1 = self.future_point[fid][t][0]
-        //     y1 = self.future_point[fid][t][1]
 
-        //     x2 = self.future_point[sid][t][0]
-        //     y2 = self.future_point[sid][t][1]
-
-        //     distance = ((x1 - x2) ** 2) + ((y1 - y2) ** 2)
-        //     dangerous_distance = config["DANGEROUS_DISTANCE"] ** 2
-        //     if distance < dangerous_distance:
-        //         if fcnt not in self.warning_id:
-        //             self.warning_id[fcnt] = [[(fid, sid), t]]
-        //         else:
-        //             self.warning_id[fcnt].append([(fid, sid), t])
     long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
     pair<long,long> result(-1,-1);
     for (int t=0; t< PREDICT_SECOND; t++) {
@@ -216,7 +203,7 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
         if (distance < dangerousDistance) {
            result.first = fid;
            result.second = sid;
-           break; // 동시다발적 위험 감지불가?
+           break;
         } else {
 
         }

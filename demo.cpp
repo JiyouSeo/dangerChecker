@@ -27,7 +27,10 @@ int main() {
 			i++;
 			ptr = strtok(NULL, "\t\n\r ");
 		}
-		int a = dc.CheckDangerByID(stol(args[0]),stol(args[1]),stod(args[2]),stod(args[3]),stol(args[4]));
+		bool isDanger = dc.CheckDangerByID(stol(args[0]),stol(args[1]),stod(args[2]),stod(args[3]),stol(args[4]));
+		if (isDanger) {
+			cout << "frame = " << stol(args[0]) << "\n";
+		}
 	}
 	clock_t end = clock();
 	in.close();

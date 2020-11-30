@@ -5,10 +5,11 @@
 #include <cmath>
 #include <algorithm>
 #include "ObjectLog.h"
+#include "LinearRegression.cpp"
 #define PREDICT_SECOND 3
 #define NUMBER_OF_CENTER 15
 #define LOWER_BOUND_CENTER 10
-#define HIGHEST_ORDER_TERM 3
+#define HIGHEST_ORDER_TERM 1
 #define FPS 25
 #define DANGEROUS_DISTANCE 40 // pixel
 using namespace std;
@@ -22,32 +23,35 @@ private:
     /* data */
     map<int,deque<ObjectLog>> centerPointEachID;
     map<int,deque<CenterPoint>> futurePointEachID;
-    map<int,double [2]> parametersEachID;
+    map<int,double [2]> parametersEachIDWithX;
+    map<int,double [2]> parametersEachIDWithY;
 public:
-    DangerChecker(/* args */);
+    // DangerChecker(/* args */);
+
     /*def point_check(self, id, center, fcnt, frame, color)*/
-    int CheckDangerByID(long frame,long id,long double X,double Y,long objectID); 
+    int CheckDangerByID(long frame,long id, double X,double Y,long objectID); 
     /*def save_point(self, id, center, fcnt, num=config["NUMBER_OF_CENTER_POINT"])*/
-    void SavePointEachID(long frame,long id,long double X,double Y,long objectID);
+    void SavePointEachID(long frame,long id,double X,double Y,long objectID);
     /*def least_square(self, id)*/
     void GetParamsByLSM(long id);
     int PredictFutureCoordinate(long id);
     pair<long,long> CalculateDistance(long fid,long sid);
-    int DangerChecker::PredictDangerByDistance();
-    ~DangerChecker();
+    int PredictDangerByDistance();
+    void addCoefficients(long id,pair<double,double> result,int whatCoordinate);
+    // ~DangerChecker();
 };
 
-DangerChecker::DangerChecker(/* args */)
-{
-}
+// DangerChecker::DangerChecker(/* args */)
+// {
+// }
 
-DangerChecker::~DangerChecker()
-{
-}
+// DangerChecker::~DangerChecker()
+// {
+// }
 
 
 // 최초 진입 함수 및 최종 경고 결과 전달
-int DangerChecker::CheckDangerByID(long frame,long id,long double X,double Y,long objectID) {
+int DangerChecker::CheckDangerByID(long frame,long id,double X,double Y,long objectID) {
     SavePointEachID(frame,id,X,Y,objectID);
     if (centerPointEachID[id].size() >= LOWER_BOUND_CENTER) {
         GetParamsByLSM(id);
@@ -58,7 +62,7 @@ int DangerChecker::CheckDangerByID(long frame,long id,long double X,double Y,lon
 }
 
 // 센터 좌표 축적 함수
-void DangerChecker::SavePointEachID(long frame,long id,long double X,double Y,long objectID) {
+void DangerChecker::SavePointEachID(long frame,long id,double X,double Y,long objectID) {
     ObjectLog ol(frame,X,Y,objectID);
     if (centerPointEachID.find(id) == centerPointEachID.end()) {
         // 존재하지 않음
@@ -68,9 +72,10 @@ void DangerChecker::SavePointEachID(long frame,long id,long double X,double Y,lo
         for(int i=0; i<PREDICT_SECOND; i++) {
             futurePointEachID[id].push_back({0.0,0.0});
         }
-        parametersEachID[id][0] = 0.0;
-        parametersEachID[id][1] = 0.0;
-
+        parametersEachIDWithX[id][0] = 0.0;
+        parametersEachIDWithX[id][1] = 0.0;
+        parametersEachIDWithY[id][0] = 0.0;
+        parametersEachIDWithY[id][1] = 0.0;
 
 
     }
@@ -88,18 +93,47 @@ void DangerChecker::SavePointEachID(long frame,long id,long double X,double Y,lo
     
 }
 
+
+void DangerChecker::addCoefficients(long id,pair<double,double> result,int whatCoordinate) {
+// coord == 0 -> X, 1-> Y
+    if (whatCoordinate==0) {
+        // A + BX, 0 is A, 1 is B
+        parametersEachIDWithX[id][0] = result.first;
+        parametersEachIDWithX[id][1] = result.second;
+    } else {
+        parametersEachIDWithY[id][0] = result.first;
+        parametersEachIDWithY[id][1] = result.second;
+    }   
+}    
+
+
 // 최소 자승법 함수
 void DangerChecker::GetParamsByLSM(long id) {
-    
+    deque<double> X;
+    deque<double> Y;
+    deque<double> T;
+    pair<double,double> result;
+    int numberOfCenterPoint = centerPointEachID[id].size();
+    for (int i=0; i < numberOfCenterPoint; i++) {
+        T.push_back(centerPointEachID[id].at(i).frame);
+        X.push_back(centerPointEachID[id].at(i).X);
+        Y.push_back(centerPointEachID[id].at(i).Y);
+    }
+    cout << "X=f(T)" << "\n";
+    result = leastRegLine(T,X,numberOfCenterPoint,0);
+    addCoefficients(id,result,0);
+    cout << "Y=f(T)" << "\n";
+    result = leastRegLine(T,Y,numberOfCenterPoint,1);
+    addCoefficients(id,result,1);
 }
 
 
 // 좌표 예측 함수
 int DangerChecker::PredictFutureCoordinate(long id) {
     deque<pair<long,long>> res;
-    int futureFrame = 0;
-    int futureX = 0;
-    int futureY = 0;
+    long futureFrame = 0;
+    double futureX = 0;
+    double futureY = 0;
     long currentFrame = centerPointEachID[id].back().frame;
     futurePointEachID[id].front().X,futurePointEachID[id].front().Y = 
     centerPointEachID[id].back().X,centerPointEachID[id].back().Y;
@@ -109,9 +143,18 @@ int DangerChecker::PredictFutureCoordinate(long id) {
         //         fur_center_point_x += int(self.parameter[id][0][-j-1][0] * (fur_frame ** j))
         //         fur_center_point_y += int(self.parameter[id][1][-j-1][0] * (fur_frame ** j))
         //     self.future_point[id][i+1] = [fur_center_point_x, fur_center_point_y]
+        // for (int term=0; term < HIGHEST_ORDER_TERM+1; term++) {
+        //     futurePointEachID[id]
+        // }
+
+        // B+AX
+        futureX += (parametersEachIDWithX[id][0] + parametersEachIDWithX[id][1] * futureFrame);
+        futureY += (parametersEachIDWithY[id][0] + parametersEachIDWithY[id][1] * futureFrame);
+        futurePointEachID[id].at(i).X = futureX;
+        futurePointEachID[id].at(i).Y = futureY;
+        cout << id << "future Point in " << futureFrame << " frame : " << futurePointEachID[id].at(i).X << " " << futurePointEachID[id].at(i).Y << "\n";
     }
-    int res = PredictDangerByDistance();
-    return 1;
+    return PredictDangerByDistance();
 }
 
 int DangerChecker::PredictDangerByDistance() {
@@ -138,6 +181,8 @@ int DangerChecker::PredictDangerByDistance() {
         CalculateDistance(params[0],params[1]);
         
 	}while(next_permutation(ind.begin(), ind.end()));
+
+    return 1;
 }
 
 pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
@@ -157,7 +202,7 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
         //         else:
         //             self.warning_id[fcnt].append([(fid, sid), t])
     long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
-    pair<long,long> result(0.0,0.0);
+    pair<long,long> result(0,0);
     for (int t=0; t< PREDICT_SECOND; t++) {
         int x1 = futurePointEachID[fid].at(t).X;
         int y1 = futurePointEachID[fid].at(t).Y;
@@ -175,3 +220,5 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
     }
     return result;
 }
+
+

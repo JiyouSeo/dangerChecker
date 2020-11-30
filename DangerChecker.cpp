@@ -10,10 +10,9 @@
 #define NUMBER_OF_CENTER 15
 #define LOWER_BOUND_CENTER 10
 #define HIGHEST_ORDER_TERM 1
-#define FPS 15
+#define FPS 25
 #define DANGEROUS_DISTANCE 40 // pixel
 using namespace std;
-
 
 /*frame ID X Y objectID */
 class DangerChecker
@@ -25,7 +24,6 @@ private:
     map<int,double [2]> parametersEachIDWithX;
     map<int,double [2]> parametersEachIDWithY;
 public:
-    // DangerChecker(/* args */);
 
     /*def point_check(self, id, center, fcnt, frame, color)*/
     int CheckDangerByID(long frame,long id, double X,double Y,long objectID); 
@@ -37,16 +35,8 @@ public:
     pair<long,long> CalculateDistance(long fid,long sid);
     pair<long,long> PredictDangerByDistance();
     void addCoefficients(long id,pair<double,double> result,int whatCoordinate);
-    // ~DangerChecker();
+
 };
-
-// DangerChecker::DangerChecker(/* args */)
-// {
-// }
-
-// DangerChecker::~DangerChecker()
-// {
-// }
 
 
 // 최초 진입 함수 및 최종 경고 결과 전달
@@ -74,7 +64,7 @@ void DangerChecker::SavePointEachID(long frame,long id,double X,double Y,long ob
     ObjectLog ol(frame,X,Y,objectID);
     if (centerPointEachID.find(id) == centerPointEachID.end()) {
         // 존재하지 않음
-        ObjectLog ol(frame,X,Y,objectID);
+
         centerPointEachID[id].push_back(ol);
         // parameter, future point 의 initialize
         for(int i=0; i<PREDICT_SECOND; i++) {
@@ -84,7 +74,6 @@ void DangerChecker::SavePointEachID(long frame,long id,double X,double Y,long ob
         parametersEachIDWithX[id][1] = 0.0;
         parametersEachIDWithY[id][0] = 0.0;
         parametersEachIDWithY[id][1] = 0.0;
-
 
     }
     // 존재
@@ -148,12 +137,13 @@ pair<long,long> DangerChecker::PredictFutureCoordinate(long id) {
     for (int i=0; i<PREDICT_SECOND; i++) {
         futureFrame = currentFrame + (FPS *(i+1));
 
-        // B+AX
+        // Y = B+AX
         futureX += (parametersEachIDWithX[id][0] + parametersEachIDWithX[id][1] * futureFrame);
         futureY += (parametersEachIDWithY[id][0] + parametersEachIDWithY[id][1] * futureFrame);
         futurePointEachID[id].at(i).X = futureX;
         futurePointEachID[id].at(i).Y = futureY;
-        // cout << id << "future Point in " << futureFrame << " frame : " << futurePointEachID[id].at(i).X << " " << futurePointEachID[id].at(i).Y << "\n";
+
+
     }
     return PredictDangerByDistance();
 }

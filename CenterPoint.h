@@ -1,4 +1,3 @@
-
 struct CenterPoint
 {
     double X;

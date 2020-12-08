@@ -6,12 +6,14 @@
 #include <algorithm>
 #include "ObjectLog.h"
 #include "LinearRegression.cpp"
+#define HUMAN_OBJECT_ID 17
 #define PREDICT_SECOND 3
-#define NUMBER_OF_CENTER 15
-#define LOWER_BOUND_CENTER 10
+#define NUMBER_OF_CENTER 25
+#define LOWER_BOUND_CENTER 15
 #define HIGHEST_ORDER_TERM 1
-#define FPS 25
-#define DANGEROUS_DISTANCE 40 // pixel
+#define FPS 30
+#define DANGEROUS_DISTANCE 1 // pixel
+#define FLUSH_TIME 600
 using namespace std;
 
 /*frame ID X Y objectID */
@@ -23,6 +25,8 @@ private:
     map<int,deque<CenterPoint>> futurePointEachID;
     map<int,double [2]> parametersEachIDWithX;
     map<int,double [2]> parametersEachIDWithY;
+    map<int,int> alreadyWarned;
+    int timer = 0;
 public:
 
     /*def point_check(self, id, center, fcnt, frame, color)*/
@@ -35,9 +39,22 @@ public:
     pair<long,long> CalculateDistance(long fid,long sid);
     pair<long,long> PredictDangerByDistance();
     void addCoefficients(long id,pair<double,double> result,int whatCoordinate);
-
+    void Flush();
 };
 
+void DangerChecker::Flush() {
+    if (timer < FLUSH_TIME) {
+        timer++;
+    }
+    else {
+        timer = 0;
+        centerPointEachID.clear();
+        futurePointEachID.clear();
+        alreadyWarned.clear();
+        parametersEachIDWithX.clear();
+        parametersEachIDWithY.clear();
+    }
+}
 
 // 최초 진입 함수 및 최종 경고 결과 전달
 // result 0 -> no warning, 1 -> warning
@@ -152,13 +169,18 @@ pair<long,long> DangerChecker::PredictDangerByDistance() {
     vector<long> idList;
     vector<long> ind;
     pair<long,long> res(-1,-1);
-    for (auto it = futurePointEachID.begin(); it != futurePointEachID.end(); it++) {
-        idList.push_back(it->first);
+    for (auto it = futurePointEachID.begin(); it != futurePointEachID.end(); ++it) {
+        if (centerPointEachID[it->first].size() >= LOWER_BOUND_CENTER) { 
+            idList.push_back(it->first);
+        }
+    }
+    if (idList.size() < 2) {
+        return res;
     }
     for(int i=0; i<2; i++){
 		ind.push_back(1);
 	}
-	// size-2만큼 0을 추가
+	// size-2만큼 0을 추가 
 	for(int i=0; i<idList.size()-2; i++){
 		ind.push_back(0);
 	}
@@ -170,8 +192,13 @@ pair<long,long> DangerChecker::PredictDangerByDistance() {
 				params.push_back(idList[i]);
 			}
 		}
+        if (alreadyWarned.count(params[0]) != 0 || params[0] == params[1] - 1) {
+            continue;
+        }
         res = CalculateDistance(params[0],params[1]);
         if (res.first != -1) {
+            alreadyWarned[params[0]] = params[1];
+            alreadyWarned[params[1]] = params[0];
             break;
         }
 	}while(next_permutation(ind.begin(), ind.end()));
@@ -180,9 +207,13 @@ pair<long,long> DangerChecker::PredictDangerByDistance() {
 }
 
 pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
-
-    long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
     pair<long,long> result(-1,-1);
+    if (centerPointEachID[fid].begin()->objectId == HUMAN_OBJECT_ID && 
+    centerPointEachID[sid].begin()->objectId == HUMAN_OBJECT_ID) {
+        return result;
+    }
+    long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
+
     for (int t=0; t< PREDICT_SECOND; t++) {
         int x1 = futurePointEachID[fid].at(t).X;
         int y1 = futurePointEachID[fid].at(t).Y;

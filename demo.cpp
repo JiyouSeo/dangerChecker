@@ -9,7 +9,7 @@ using namespace std;
 
 int main() {
     string in_line;
-	ifstream in("logv1.txt");
+	ifstream in("output.txt");
 	char * delimeter = "\t";
 	char str_buff[1000];
 	string args[5];
@@ -29,8 +29,9 @@ int main() {
 		}
 		bool isDanger = dc.CheckDangerByID(stol(args[0]),stol(args[1]),stod(args[2]),stod(args[3]),stol(args[4]));
 		if (isDanger) {
-			cout << "frame = " << stol(args[0]) << "\n";
+			cout << "frame = " << (float) stol(args[0]) / 30 << "\n";
 		}
+		dc.Flush();
 	}
 	clock_t end = clock();
 	in.close();

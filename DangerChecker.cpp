@@ -192,8 +192,8 @@ pair<long,long> DangerChecker::PredictDangerByDistance() {
 				params.push_back(idList[i]);
 			}
 		}
-        if (alreadyWarned.count(params[0]) != 0 || params[0] == params[1] - 1) {
-            continue;
+        if (alreadyWarned.count(params[0]) != 0 ) {
+            continue; // || params[0] == params[1] - 1
         }
         res = CalculateDistance(params[0],params[1]);
         if (res.first != -1) {

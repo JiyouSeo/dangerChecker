@@ -29,7 +29,7 @@ int main() {
 		}
 		bool isDanger = dc.CheckDangerByID(stol(args[0]),stol(args[1]),stod(args[2]),stod(args[3]),stol(args[4]));
 		if (isDanger) {
-			cout << "frame = " << (float) stol(args[0]) / 30 << "\n";
+			cout << "time = " << (float) stol(args[0]) / 30 << "\n";
 		}
 		dc.Flush();
 	}

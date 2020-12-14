@@ -13,7 +13,7 @@ int main() {
 	char * delimeter = "\t";
 	char str_buff[1000];
 	string args[5];
-	DangerChecker dc;
+	DangerChecker dc(7,4,4);
 	clock_t start = clock();
 	while(getline(in,in_line)) {
 

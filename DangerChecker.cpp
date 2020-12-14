@@ -12,11 +12,8 @@
 #define LOWER_BOUND_CENTER 15
 #define HIGHEST_ORDER_TERM 1
 #define FPS 30
-#define DANGEROUS_DISTANCE 25 // pixel
+#define DANGEROUS_DISTANCE 15 // pixel
 #define FLUSH_TIME 600
-#define PREDICT_SEC_CAM_1 7
-#define PREDICT_SEC_CAM_2 3
-#define PREDICT_SEC_CAM_3 3
 
 using namespace std;
 
@@ -30,10 +27,12 @@ private:
     map<int,double [2]> parametersEachIDWithX;
     map<int,double [2]> parametersEachIDWithY;
     map<int,int> alreadyWarned;
+    map<int,int> DangerousDistance;
     int predictionSecond[4];
+
     int timer = 0;
 public:
-    DangerChecker();
+    DangerChecker(int cam1,int cam2,int cam3);
     /*def point_check(self, id, center, fcnt, frame, color)*/
     int CheckDangerByID(long frame,long id, double X,double Y,long objectID); 
     /*def save_point(self, id, center, fcnt, num=config["NUMBER_OF_CENTER_POINT"])*/
@@ -46,13 +45,17 @@ public:
     void addCoefficients(long id,pair<double,double> result,int whatCoordinate);
     void Flush();
     int getPredictSecByCameraID(long fid,long sid);
+    int getDangerDistByCameraID(long fid,long sid);
 };
 
-DangerChecker::DangerChecker () {
+DangerChecker::DangerChecker(int cam1,int cam2,int cam3) {
     predictionSecond[0] = 0;
-    predictionSecond[1] = PREDICT_SEC_CAM_1;
-    predictionSecond[2] = PREDICT_SEC_CAM_2;
-    predictionSecond[3] = PREDICT_SEC_CAM_3;
+    predictionSecond[1] = cam1;
+    predictionSecond[2] = cam2;
+    predictionSecond[3] = cam3;
+    DangerousDistance[3] = 75; // 1 & 2 
+    DangerousDistance[5] = 25; // 2 & 3 
+    DangerousDistance[4] = 25; // 1 & 3
 }
 
 
@@ -100,7 +103,7 @@ void DangerChecker::SavePointEachID(long frame,long id,double X,double Y,long ob
         // parameter, future point 의 initialize
 
 
-        for(int i=0; i<PREDICT_SECOND; i++) {
+        for(int i=0; i<=PREDICT_SECOND; i++) {
             futurePointEachID[id].push_back({0.0,0.0});
         }
         parametersEachIDWithX[id][0] = 0.0;
@@ -167,8 +170,8 @@ pair<long,long> DangerChecker::PredictFutureCoordinate(long id) {
     long currentFrame = centerPointEachID[id].back().frame;
     futurePointEachID[id].front().X,futurePointEachID[id].front().Y = 
     centerPointEachID[id].back().X,centerPointEachID[id].back().Y;
-    for (int i=0; i<PREDICT_SECOND; i++) {
-        futureFrame = currentFrame + (FPS *(i+1));
+    for (int i=1; i<=PREDICT_SECOND; i++) {
+        futureFrame = currentFrame + (FPS *(i));
 
         // Y = B+AX
         futureX += (parametersEachIDWithX[id][0] + parametersEachIDWithX[id][1] * futureFrame);
@@ -231,23 +234,22 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
     if (abs(fid - sid) < 10000) {
         return result;
     }
-    long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
+    // long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
+    long dangerousDistance = pow(getDangerDistByCameraID(fid,sid),2);
     int maxPredictionSecond = getPredictSecByCameraID(fid,sid);
 
-    for (int t=0; t< maxPredictionSecond; t++) {
-        int x1 = futurePointEachID[fid].at(t).X;
-        int y1 = futurePointEachID[fid].at(t).Y;
-        int x2 = futurePointEachID[sid].at(t).X;
-        int y2 = futurePointEachID[sid].at(t).Y;
+    for (int t=maxPredictionSecond; t >= 0; --t) {
+        double x1 = futurePointEachID[fid].at(t).X;
+        double y1 = futurePointEachID[fid].at(t).Y;
+        double x2 = futurePointEachID[sid].at(t).X;
+        double y2 = futurePointEachID[sid].at(t).Y;
 
-        long distance = pow((x1-x2),2) + pow((y1-y2),2);
+        double distance = pow((x1-x2),2) + pow((y1-y2),2);
         if (distance < dangerousDistance) {
-           printf("prediction sec = %d \n",t);
+           printf("time = %d\n",t);
            result.first = fid;
            result.second = sid;
            break;
-        } else {
-
         }
 
     }
@@ -256,13 +258,19 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
 
 
 int DangerChecker::getPredictSecByCameraID(long fid,long sid) {
-    int relation[3] = {0,0,0};
+    int digitOfChannel = 10000;
+    int firstCamera = fid / digitOfChannel;
+    int secondCamera = sid / digitOfChannel;
+    
+    return max(predictionSecond[firstCamera],predictionSecond[secondCamera]);
+
+}
+
+int DangerChecker::getDangerDistByCameraID(long fid,long sid) {
     int digitOfChannel = 10000;
     int firstCamera = fid / digitOfChannel;
     int secondCamera = sid / digitOfChannel;
     
 
-
-    return max(predictionSecond[firstCamera],predictionSecond[secondCamera]);
-
+    return DangerousDistance[firstCamera+secondCamera];
 }

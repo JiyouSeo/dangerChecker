@@ -7,13 +7,17 @@
 #include "ObjectLog.h"
 #include "LinearRegression.cpp"
 #define HUMAN_OBJECT_ID 17
-#define PREDICT_SECOND 3
+#define PREDICT_SECOND 8
 #define NUMBER_OF_CENTER 25
 #define LOWER_BOUND_CENTER 15
 #define HIGHEST_ORDER_TERM 1
 #define FPS 30
-#define DANGEROUS_DISTANCE 1 // pixel
+#define DANGEROUS_DISTANCE 25 // pixel
 #define FLUSH_TIME 600
+#define PREDICT_SEC_CAM_1 7
+#define PREDICT_SEC_CAM_2 3
+#define PREDICT_SEC_CAM_3 3
+
 using namespace std;
 
 /*frame ID X Y objectID */
@@ -26,9 +30,10 @@ private:
     map<int,double [2]> parametersEachIDWithX;
     map<int,double [2]> parametersEachIDWithY;
     map<int,int> alreadyWarned;
+    int predictionSecond[4];
     int timer = 0;
 public:
-
+    DangerChecker();
     /*def point_check(self, id, center, fcnt, frame, color)*/
     int CheckDangerByID(long frame,long id, double X,double Y,long objectID); 
     /*def save_point(self, id, center, fcnt, num=config["NUMBER_OF_CENTER_POINT"])*/
@@ -40,7 +45,16 @@ public:
     pair<long,long> PredictDangerByDistance();
     void addCoefficients(long id,pair<double,double> result,int whatCoordinate);
     void Flush();
+    int getPredictSecByCameraID(long fid,long sid);
 };
+
+DangerChecker::DangerChecker () {
+    predictionSecond[0] = 0;
+    predictionSecond[1] = PREDICT_SEC_CAM_1;
+    predictionSecond[2] = PREDICT_SEC_CAM_2;
+    predictionSecond[3] = PREDICT_SEC_CAM_3;
+}
+
 
 void DangerChecker::Flush() {
     if (timer < FLUSH_TIME) {
@@ -84,6 +98,8 @@ void DangerChecker::SavePointEachID(long frame,long id,double X,double Y,long ob
 
         centerPointEachID[id].push_back(ol);
         // parameter, future point 의 initialize
+
+
         for(int i=0; i<PREDICT_SECOND; i++) {
             futurePointEachID[id].push_back({0.0,0.0});
         }
@@ -212,9 +228,13 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
     centerPointEachID[sid].begin()->objectId == HUMAN_OBJECT_ID) {
         return result;
     }
+    if (abs(fid - sid) < 10000) {
+        return result;
+    }
     long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
+    int maxPredictionSecond = getPredictSecByCameraID(fid,sid);
 
-    for (int t=0; t< PREDICT_SECOND; t++) {
+    for (int t=0; t< maxPredictionSecond; t++) {
         int x1 = futurePointEachID[fid].at(t).X;
         int y1 = futurePointEachID[fid].at(t).Y;
         int x2 = futurePointEachID[sid].at(t).X;
@@ -222,6 +242,7 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
 
         long distance = pow((x1-x2),2) + pow((y1-y2),2);
         if (distance < dangerousDistance) {
+           printf("prediction sec = %d \n",t);
            result.first = fid;
            result.second = sid;
            break;
@@ -234,3 +255,14 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
 }
 
 
+int DangerChecker::getPredictSecByCameraID(long fid,long sid) {
+    int relation[3] = {0,0,0};
+    int digitOfChannel = 10000;
+    int firstCamera = fid / digitOfChannel;
+    int secondCamera = sid / digitOfChannel;
+    
+
+
+    return max(predictionSecond[firstCamera],predictionSecond[secondCamera]);
+
+}

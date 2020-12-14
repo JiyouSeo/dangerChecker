@@ -12,7 +12,6 @@
 #define LOWER_BOUND_CENTER 15
 #define HIGHEST_ORDER_TERM 1
 #define FPS 30
-#define DANGEROUS_DISTANCE 15 // pixel
 #define FLUSH_TIME 600
 
 using namespace std;
@@ -32,7 +31,7 @@ private:
 
     int timer = 0;
 public:
-    DangerChecker(int cam1,int cam2,int cam3);
+    DangerChecker(int cam1,int cam2,int cam3,int camOneAndTwo, int camTwoAndThree,int camOneAndThree);
     /*def point_check(self, id, center, fcnt, frame, color)*/
     int CheckDangerByID(long frame,long id, double X,double Y,long objectID); 
     /*def save_point(self, id, center, fcnt, num=config["NUMBER_OF_CENTER_POINT"])*/
@@ -48,14 +47,14 @@ public:
     int getDangerDistByCameraID(long fid,long sid);
 };
 
-DangerChecker::DangerChecker(int cam1,int cam2,int cam3) {
+DangerChecker::DangerChecker(int cam1,int cam2,int cam3,int camOneAndTwo, int camTwoAndThree,int camOneAndThree) {
     predictionSecond[0] = 0;
     predictionSecond[1] = cam1;
     predictionSecond[2] = cam2;
     predictionSecond[3] = cam3;
-    DangerousDistance[3] = 75; // 1 & 2 
-    DangerousDistance[5] = 25; // 2 & 3 
-    DangerousDistance[4] = 25; // 1 & 3
+    DangerousDistance[3] = camOneAndTwo; // 1 & 2 
+    DangerousDistance[5] = camTwoAndThree; // 2 & 3 
+    DangerousDistance[4] = camOneAndThree; // 1 & 3
 }
 
 
@@ -234,7 +233,6 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
     if (abs(fid - sid) < 10000) {
         return result;
     }
-    // long dangerousDistance = pow(DANGEROUS_DISTANCE,2);
     long dangerousDistance = pow(getDangerDistByCameraID(fid,sid),2);
     int maxPredictionSecond = getPredictSecByCameraID(fid,sid);
 
@@ -246,7 +244,6 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
 
         double distance = pow((x1-x2),2) + pow((y1-y2),2);
         if (distance < dangerousDistance) {
-           printf("time = %d\n",t);
            result.first = fid;
            result.second = sid;
            break;

@@ -13,7 +13,8 @@ int main() {
 	char * delimeter = "\t";
 	char str_buff[1000];
 	string args[5];
-	DangerChecker dc(7,4,4);
+	// 차례대로, 1,2,3번 cam 예측 시간 뒤에 3개는 1<->2,2<->3,1<->3 번 위험 예측 거리입니다. 
+	DangerChecker dc(7,4,4,75,25,25); 
 	clock_t start = clock();
 	while(getline(in,in_line)) {
 

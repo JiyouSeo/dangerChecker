@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "ObjectLog.h"
 #include "LinearRegression.cpp"
+#include "WarningResult.h"
 #define HUMAN_OBJECT_ID 17
 #define PREDICT_SECOND 8
 #define NUMBER_OF_CENTER 25
@@ -20,7 +21,15 @@ using namespace std;
 class DangerChecker
 {
 private:
-    /* data */
+    /* 
+    map<int,deque<ObjectLog>> centerPointEachID : 각 ID별 중심좌표 및 프레임, 오브젝트종류를 Queue 형태로 저장합니다.
+    map<int,deque<CenterPoint>> futurePointEachID : 각 ID별 가까운 미래의 중심좌표류를 Queue 형태로 저장합니다.
+    map<int,double [2]> parametersEachIDWithX : 최소자승법에 필요한, 각 ID별 객체의 X좌표 방정식 계수입니다.
+    map<int,double [2]> parametersEachIDWithY : 최소자승법에 필요한, 각 ID별 객체의 Y좌표 방정식 계수입니다.
+    map<int,int> alreadyWarned : 이미 경고한 객체를 저장해 중복 경고가 발생하지 않기 위함입니다.
+    map<int,int> DangerousDistance : 각 카메라 암전구역 별 경고를 줘야하는 거리 경계를 설정합니다.
+    int predictionSecond[4] : 각 객체 별 몇초 미래의 좌표까지를 계산해 예측할지를 정합니다.
+     */
     map<int,deque<ObjectLog>> centerPointEachID;
     map<int,deque<CenterPoint>> futurePointEachID;
     map<int,double [2]> parametersEachIDWithX;
@@ -31,9 +40,17 @@ private:
 
     int timer = 0;
 public:
+    /*
+    WarningResult CheckDangerByID(long frame,long id, double X,double Y,long objectID) : 외부에서 호출해야할 진입 함수입니다. 최종적으로 2개의 ID와 objectID를 담은 구조체를 리턴.
+    void SavePointEachID : 각 id 별로 센터 좌표를 Queue 에 push 합니다. 각 ID별로 일정량이 차는 경우 가장오래된 센터좌표기록을 지웁니다.
+    GetParamsByLSM : 최소 자승법을 이용해 각 ID 의 미래좌표 예상에 필요한 방정식 계수를 계산하여 parameter Queue 에 저장합니다.
+    PredictFutureCoordinate : 각 프레임 별 객체들 간의 미래 좌표 예상 및 거리 연산을 통한 위험예측을 시작하는 함수입니다. 최종적으로 2개의 id를 리턴합니다.
+    CalculateDistance : 2개 객체 간의 미래좌표 간 거리를 계산하는 함수입니다. 위험거리 안에 드는 경우 바로 리턴합니다.
+    PredictDangerByDistance : 거리 계산 함수를 호출하는 함수입니다. next_permutation 을 통해 미래좌표가 예측되어있는 객체 들을 2개씩 조합하여 위 함수를 호출합니다.
+    */
     DangerChecker(int cam1,int cam2,int cam3,int camOneAndTwo, int camTwoAndThree,int camOneAndThree);
     /*def point_check(self, id, center, fcnt, frame, color)*/
-    int CheckDangerByID(long frame,long id, double X,double Y,long objectID); 
+    WarningResult CheckDangerByID(long frame,long id, double X,double Y,long objectID); 
     /*def save_point(self, id, center, fcnt, num=config["NUMBER_OF_CENTER_POINT"])*/
     void SavePointEachID(long frame,long id,double X,double Y,long objectID);
     /*def least_square(self, id)*/
@@ -74,22 +91,24 @@ void DangerChecker::Flush() {
 
 // 최초 진입 함수 및 최종 경고 결과 전달
 // result 0 -> no warning, 1 -> warning
-int DangerChecker::CheckDangerByID(long frame,long id,double X,double Y,long objectID) {
+WarningResult DangerChecker::CheckDangerByID(long frame,long id,double X,double Y,long objectID) {
     SavePointEachID(frame,id,X,Y,objectID);
+    WarningResult res;
     if (centerPointEachID[id].size() >= LOWER_BOUND_CENTER) {
         GetParamsByLSM(id);
-        pair<long,long> result = PredictFutureCoordinate(id);
-        if (result.first != -1) {
-            string res = "warning: ";
-            res.append(to_string(result.first));
-            res.append(" and ");
-            res.append(to_string(result.second));
-            res.append("\n");
-            cout << res;
-            return 1;
+        pair<long,long> twoResultId = PredictFutureCoordinate(id);
+        if(twoResultId.first != -1) {
+            // 경고 결과가 리턴되는 경우
+            res.fid = twoResultId.first;
+            res.sid = twoResultId.second;
+            res.firstObjectId =  centerPointEachID[twoResultId.first].begin()->objectId;
+            res.secondObjectId = centerPointEachID[twoResultId.second].begin()->objectId;
+            res.isDanger = true;
+            printf("warning : %ld(#%ld) and %ld(#%ld)\n",res.fid,res.firstObjectId,res.sid,res.secondObjectId);
         }
+        
     } 
-    return 0;
+    return res;
 }
 
 // 센터 좌표 축적 함수
@@ -226,13 +245,15 @@ pair<long,long> DangerChecker::PredictDangerByDistance() {
 
 pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
     pair<long,long> result(-1,-1);
-    if (centerPointEachID[fid].begin()->objectId == HUMAN_OBJECT_ID && 
-    centerPointEachID[sid].begin()->objectId == HUMAN_OBJECT_ID) {
-        return result;
-    }
-    if (abs(fid - sid) < 10000) {
-        return result;
-    }
+    // 이하 3라인은 오브젝트ID 17번인 보행자끼리의 충돌예측을 하지 않기위한 조건문입니다.
+    // if (centerPointEachID[fid].begin()->objectId == HUMAN_OBJECT_ID && 
+    // centerPointEachID[sid].begin()->objectId == HUMAN_OBJECT_ID) {
+    //     return result;
+    // }
+    // 동일 CCTV 내 객체에 대한 예측을 하지 않기 위한 조건문입니다.
+    // if (abs(fid - sid) < 10000) {
+    //     return result;
+    // }
     long dangerousDistance = pow(getDangerDistByCameraID(fid,sid),2);
     int maxPredictionSecond = getPredictSecByCameraID(fid,sid);
 

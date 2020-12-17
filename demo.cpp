@@ -14,7 +14,7 @@ int main() {
 	char str_buff[1000];
 	string args[5];
 	// 차례대로, 1,2,3번 cam 예측 시간 뒤에 3개는 1<->2,2<->3,1<->3 번 위험 예측 거리입니다. 
-	DangerChecker dc(7,4,4,75,25,25); 
+	DangerChecker dc(7,4,4,75,15,15); 
 	clock_t start = clock();
 	while(getline(in,in_line)) {
 
@@ -28,8 +28,8 @@ int main() {
 			i++;
 			ptr = strtok(NULL, "\t\n\r ");
 		}
-		bool isDanger = dc.CheckDangerByID(stol(args[0]),stol(args[1]),stod(args[2]),stod(args[3]),stol(args[4]));
-		if (isDanger) {
+		WarningResult result = dc.CheckDangerByID(stol(args[0]),stol(args[1]),stod(args[2]),stod(args[3]),stol(args[4]));
+		if (result.isDanger) {
 			cout << "frame = " << (float) stol(args[0]) << "\n";
 		}
 		dc.Flush();

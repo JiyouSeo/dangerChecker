@@ -7,6 +7,7 @@
 #include "ObjectLog.h"
 #include "LinearRegression.cpp"
 #include "WarningResult.h"
+#define DIGIT_CH 10000
 #define HUMAN_OBJECT_ID 17
 #define PREDICT_SECOND 8
 #define NUMBER_OF_CENTER 25
@@ -14,6 +15,7 @@
 #define HIGHEST_ORDER_TERM 1
 #define FPS 30
 #define FLUSH_TIME 600
+#define DANGEROUS_DIST_IN_CCTV 15
 
 using namespace std;
 
@@ -285,10 +287,15 @@ int DangerChecker::getPredictSecByCameraID(long fid,long sid) {
 }
 
 int DangerChecker::getDangerDistByCameraID(long fid,long sid) {
-    int digitOfChannel = 10000;
+    int digitOfChannel = DIGIT_CH;
     int firstCamera = fid / digitOfChannel;
     int secondCamera = sid / digitOfChannel;
-    
+    int context;
+    if (firstCamera==secondCamera) {
+        context = firstCamera;
+    } else {
+        context = firstCamera+secondCamera;
+    }
 
-    return DangerousDistance[firstCamera+secondCamera];
+    return DangerousDistance[context];
 }

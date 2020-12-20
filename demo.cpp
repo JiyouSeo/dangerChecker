@@ -20,10 +20,9 @@ int main() {
 
 		int i = 0;
 		strcpy(str_buff, in_line.c_str());
-		char *ptr = strtok(str_buff, "\t\n\r ");    //구분자는 "\t\n "입니다.
+		char *ptr = strtok(str_buff, "\t\n\r ");
 		while (ptr != NULL)
 		{
-
 			args[i] = ptr;
 			i++;
 			ptr = strtok(NULL, "\t\n\r ");

@@ -29,7 +29,7 @@ private:
     map<int,double [2]> parametersEachIDWithX : 최소자승법에 필요한, 각 ID별 객체의 X좌표 방정식 계수입니다.
     map<int,double [2]> parametersEachIDWithY : 최소자승법에 필요한, 각 ID별 객체의 Y좌표 방정식 계수입니다.
     map<int,int> alreadyWarned : 이미 경고한 객체를 저장해 중복 경고가 발생하지 않기 위함입니다.
-    map<int,int> DangerousDistance : 각 카메라 암전구역 별 경고를 줘야하는 거리 경계를 설정합니다.
+    map<int,int> dangerousDistance : 각 카메라 암전구역 별 경고를 줘야하는 거리 경계를 설정합니다.
     int predictionSecond[4] : 각 객체 별 몇초 미래의 좌표까지를 계산해 예측할지를 정합니다.
      */
     map<int,deque<ObjectLog>> centerPointEachID;
@@ -37,7 +37,7 @@ private:
     map<int,double [2]> parametersEachIDWithX;
     map<int,double [2]> parametersEachIDWithY;
     map<int,int> alreadyWarned;
-    map<int,int> DangerousDistance;
+    map<int,int> dangerousDistance;
     int predictionSecond[4];
 
     int timer = 0;
@@ -60,10 +60,10 @@ public:
     pair<long,long> PredictFutureCoordinate(long id);
     pair<long,long> CalculateDistance(long fid,long sid);
     pair<long,long> PredictDangerByDistance();
-    void addCoefficients(long id,pair<double,double> result,int whatCoordinate);
+    void AddCoefficients(long id,pair<double,double> result,int whatCoordinate);
     void Flush();
-    int getPredictSecByCameraID(long fid,long sid);
-    int getDangerDistByCameraID(long fid,long sid);
+    int GetPredictSecByCameraID(long fid,long sid);
+    int GetDangerDistByCameraID(long fid,long sid);
 };
 
 DangerChecker::DangerChecker(int cam1,int cam2,int cam3,int camOneAndTwo, int camTwoAndThree,int camOneAndThree) {
@@ -71,9 +71,9 @@ DangerChecker::DangerChecker(int cam1,int cam2,int cam3,int camOneAndTwo, int ca
     predictionSecond[1] = cam1;
     predictionSecond[2] = cam2;
     predictionSecond[3] = cam3;
-    DangerousDistance[3] = camOneAndTwo; // 1 & 2 
-    DangerousDistance[5] = camTwoAndThree; // 2 & 3 
-    DangerousDistance[4] = camOneAndThree; // 1 & 3
+    dangerousDistance[3] = camOneAndTwo; // 1 & 2 
+    dangerousDistance[5] = camTwoAndThree; // 2 & 3 
+    dangerousDistance[4] = camOneAndThree; // 1 & 3
 }
 
 
@@ -147,7 +147,7 @@ void DangerChecker::SavePointEachID(long frame,long id,double X,double Y,long ob
 }
 
 
-void DangerChecker::addCoefficients(long id,pair<double,double> result,int whatCoordinate) {
+void DangerChecker::AddCoefficients(long id,pair<double,double> result,int whatCoordinate) {
 // coord == 0 -> X, 1-> Y
     if (whatCoordinate==0) {
         // A + BX, 0 is A, 1 is B
@@ -174,10 +174,10 @@ void DangerChecker::GetParamsByLSM(long id) {
     }
     // cout << "X=f(T)" << "\n";
     result = leastRegLine(T,X,numberOfCenterPoint,0);
-    addCoefficients(id,result,0);
+    AddCoefficients(id,result,0);
     // cout << "Y=f(T)" << "\n";
     result = leastRegLine(T,Y,numberOfCenterPoint,1);
-    addCoefficients(id,result,1);
+    AddCoefficients(id,result,1);
 }
 
 
@@ -256,8 +256,8 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
     // if (abs(fid - sid) < 10000) {
     //     return result;
     // }
-    long dangerousDistance = pow(getDangerDistByCameraID(fid,sid),2);
-    int maxPredictionSecond = getPredictSecByCameraID(fid,sid);
+    long dangerousDistance = pow(GetDangerDistByCameraID(fid,sid),2);
+    int maxPredictionSecond = GetPredictSecByCameraID(fid,sid);
 
     for (int t=maxPredictionSecond; t >= 0; --t) {
         double x1 = futurePointEachID[fid].at(t).X;
@@ -277,7 +277,7 @@ pair<long,long> DangerChecker::CalculateDistance(long fid,long sid) {
 }
 
 
-int DangerChecker::getPredictSecByCameraID(long fid,long sid) {
+int DangerChecker::GetPredictSecByCameraID(long fid,long sid) {
     int digitOfChannel = 10000;
     int firstCamera = fid / digitOfChannel;
     int secondCamera = sid / digitOfChannel;
@@ -286,7 +286,7 @@ int DangerChecker::getPredictSecByCameraID(long fid,long sid) {
 
 }
 
-int DangerChecker::getDangerDistByCameraID(long fid,long sid) {
+int DangerChecker::GetDangerDistByCameraID(long fid,long sid) {
     int digitOfChannel = DIGIT_CH;
     int firstCamera = fid / digitOfChannel;
     int secondCamera = sid / digitOfChannel;
@@ -297,5 +297,5 @@ int DangerChecker::getDangerDistByCameraID(long fid,long sid) {
         context = firstCamera+secondCamera;
     }
 
-    return DangerousDistance[context];
+    return dangerousDistance[context];
 }
